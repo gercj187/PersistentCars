@@ -1,9 +1,9 @@
 {
 	"Releases": [
 		{
-			"Id": "PersistentJobsRework",
-			"Version": "1.01.00",
-			"DownloadUrl": "https://github.com/gercj187/PersistentJobsRework/releases/download/PersistentJobsRework/PersistentJobsRework_v1.01.00.zip"
+			"Id": "PersistentCars",
+			"Version": "1.02.00",
+			"DownloadUrl": "https://github.com/gercj187/PersistentCars/releases/download/PersistentCars/PersistentCars_v1.02.00.zip"
 		}
 	]
 }

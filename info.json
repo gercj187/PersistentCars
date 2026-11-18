@@ -1,12 +1,12 @@
 {
-	"Id": "PersistentJobsRework",
-	"Version": "1.01.00",
-	"DisplayName": "PersistentJobsRework",
+	"Id": "PersistentCars",
+	"Version": "1.02.00",
+	"DisplayName": "PersistentCars",
 	"Author": "CJ187",
-	"EntryMethod": "PersistentJobsRework.Main.Load",
-	"AssemblyName": "PersistentJobsRework.dll",
+	"EntryMethod": "PersistentCars.Main.Load",
+	"AssemblyName": "PersistentCars.dll",
 	"ManagerVersion": "0.27.2",
 	"LoadAfter": [ "Multiplayer" ],
 	"HomePage": "https://www.nexusmods.com/derailvalley/mods/1832",
-	"Repository": "https://github.com/gercj187/PersistentJobsRework/blob/main/repository.json"
+	"Repository": "https://github.com/gercj187/PersistentCars/blob/main/repository.json"
 }
