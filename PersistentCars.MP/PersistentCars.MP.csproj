@@ -10,7 +10,7 @@
 		<AssemblyName>PersistentCars.MP</AssemblyName>
 		<RootNamespace>PersistentCars.MP</RootNamespace>
 
-		<DvDir Condition="'$(DvDir)' == ''">S:\SteamLibrary\steamapps\common\Derail Valley</DvDir>
+		<DvDir Condition="'$(DvDir)' == ''">C:\GAMES\Steam\steamapps\common\Derail Valley</DvDir>
 		<MpApiDll Condition="'$(MpApiDll)' == ''">$(DvDir)\Mods\Multiplayer\MultiplayerAPI.dll</MpApiDll>
 		<CopyToGame Condition="'$(CopyToGame)' == ''">true</CopyToGame>
 		<PackageMod Condition="'$(PackageMod)' == ''">true</PackageMod>
