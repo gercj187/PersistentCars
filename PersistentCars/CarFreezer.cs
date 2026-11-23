@@ -31,6 +31,7 @@ namespace PersistentCars
             public readonly List<Behaviour> DeepBehaviours = new List<Behaviour>();
             public readonly List<Component> DeepParticles = new List<Component>();   // ParticleSystem per Reflection (kein Modul-Verweis noetig)
             public Car LogicCar;
+            public TrainCar Car;
         }
 
         private readonly Dictionary<TrainCar, FrozenCar> _frozen = new Dictionary<TrainCar, FrozenCar>();
@@ -42,6 +43,8 @@ namespace PersistentCars
         private readonly Queue<List<TrainCar>> _freezeQueue = new Queue<List<TrainCar>>();
         private readonly HashSet<TrainCar> _freezeQueued = new HashSet<TrainCar>();
         private readonly Queue<TrainCar> _deepWakeQueue = new Queue<TrainCar>();
+        private readonly Queue<TrainCar> _deepSleepQueue = new Queue<TrainCar>();
+        private readonly HashSet<TrainCar> _deepSleepQueued = new HashSet<TrainCar>();
         private readonly HashSet<TrainCar> _deepWakeQueued = new HashSet<TrainCar>();
         private bool _wakeAllQueued;
         private readonly List<Vector3> _movingAnchors = new List<Vector3>();
@@ -260,6 +263,7 @@ namespace PersistentCars
             Vector3 originShift = WorldOrigin.Shift();
             bool recentlyMoved = false;
             float nearestPlayer = float.MaxValue;
+            float nearestClient = float.MaxValue;   // nur MP-Clients (nicht der Host)
             float nearestMoving = float.MaxValue;
 
             for (int i = 0; i < cars.Count; i++)
@@ -288,6 +292,8 @@ namespace PersistentCars
                 Vector3 pos = car.transform.position;
                 float d = Mp.NearestPlayerSqrDistance(pos);
                 if (d < nearestPlayer) nearestPlayer = d;
+                float dc = Mp.NearestClientSqrDistance(pos);
+                if (dc < nearestClient) nearestClient = dc;
 
                 for (int a = 0; a < _movingAnchors.Count; a++)
                 {
@@ -297,6 +303,10 @@ namespace PersistentCars
             }
 
             bool movingTrainClose = nearestMoving < movingSqr;
+            // Clients wecken VOLLSTAENDIG: im ganzen Sichtbereich (Tiefschlaf-Entfernung) Physik + Darstellung.
+            // Der Client sieht die Wagen ueber die Daten des Hosts - halb schlafende Wagen ruckeln dort.
+            float clientWake = Main.Settings.DeepSleepDistance;
+            bool clientNear = !ignoreDistance && nearestClient < clientWake * clientWake;
 
             // Garnitur teils eingefroren, teils nicht (z. B. neu gekuppelt) -> sicherheitshalber alles wecken
             if (frozenInSet > 0 && frozenInSet < cars.Count)
@@ -317,7 +327,7 @@ namespace PersistentCars
 
             if (frozenInSet > 0)
             {
-                bool wake = containsPlayerCar || recentlyMoved || movingTrainClose || (!ignoreDistance && nearestPlayer < wakeSqr);
+                bool wake = containsPlayerCar || recentlyMoved || movingTrainClose || clientNear || (!ignoreDistance && nearestPlayer < wakeSqr);
                 if (wake) { WakeCars(cars); return; }
                 // von aussen geweckt (z. B. Kupplungs-Nachbar) und steht trotzdem -> wieder schlafen legen
                 foreach (var c in cars)
@@ -327,7 +337,7 @@ namespace PersistentCars
             }
 
             bool playerFar = ignoreDistance || nearestPlayer > freezeSqr;
-            bool freeze = allStationary && !recentlyMoved && !anyDerailed && !containsPlayerCar && !movingTrainClose && playerFar && !recentlyWoken;
+            bool freeze = allStationary && !recentlyMoved && !anyDerailed && !containsPlayerCar && !movingTrainClose && playerFar && !recentlyWoken && !clientNear;
             if (freeze) { FreezeCars(cars); return; }
 
             // Grund, warum die Garnitur wach bleibt (fuers Log) - erster zutreffender Grund zaehlt
@@ -424,6 +434,55 @@ namespace PersistentCars
                 DeepCount = Math.Max(0, DeepCount - 1);
                 processed++;
             }
+
+            // In den Tiefschlaf ebenso fliessend: hoechstens so viele Wagen je Frame, wie nach dem Aufwecken
+            // noch Platz haben - nie ein ganzer Bahnhof in einem Frame.
+            float sleepDist = Main.Settings.DeepSleepDistance + 100f;
+            float sleepSqr = sleepDist * sleepDist;
+            while (_deepSleepQueue.Count > 0 && processed < maxCarsPerFrame)
+            {
+                var car = _deepSleepQueue.Dequeue();
+                _deepSleepQueued.Remove(car);
+                if (car == null || _wakeQueued.Contains(car) || !_frozen.TryGetValue(car, out var fc) || fc.Deep) continue;
+                // erneut pruefen: inzwischen kann ein Spieler (auch ein Client) naeher gekommen sein
+                if (!Main.Settings.DeepSleep || Mp.NearestPlayerSqrDistance(car.transform.position) < sleepSqr) continue;
+                DeepSleepCar(car, fc);
+                if (fc.Deep) DeepCount++;
+                processed++;
+            }
+        }
+
+        private void QueueDeepSleep(TrainCar car)
+        {
+            if (car != null && _deepSleepQueued.Add(car)) _deepSleepQueue.Enqueue(car);
+        }
+
+        // ================================================================== Schadensschutz rund um den Tiefschlaf
+
+        /// <summary>Wagen im Tiefschlaf: nehmen keinen Schaden.</summary>
+        private static readonly HashSet<TrainCar> _noDamage = new HashSet<TrainCar>();
+        /// <summary>Gerade geweckte Wagen: noch ein paar Sekunden ohne Schaden (die Physik setzt sich).</summary>
+        private static readonly Dictionary<TrainCar, float> _noDamageUntil = new Dictionary<TrainCar, float>();
+        private const float DamageGraceAfterWake = 10f;
+
+        /// <summary>Aus SpawnProtection.Damage_Prefix: Schaden an diesem Wagen ignorieren?</summary>
+        public static bool IsDamageBlocked(TrainCar car)
+        {
+            if (car == null) return false;
+            if (_noDamage.Contains(car)) return true;
+            if (_noDamageUntil.TryGetValue(car, out float until))
+            {
+                if (Time.realtimeSinceStartup < until) return true;
+                _noDamageUntil.Remove(car);
+            }
+            return false;
+        }
+
+        private static void GraceAfterWake(TrainCar car)
+        {
+            if (car == null) return;
+            _noDamage.Remove(car);
+            _noDamageUntil[car] = Time.realtimeSinceStartup + DamageGraceAfterWake;
         }
 
         private void FreezeCar(TrainCar car)
@@ -476,7 +535,9 @@ namespace PersistentCars
             _frozen[car] = fc;
             fc.LogicCar = car.logicCar;
             if (car.logicCar != null) FrozenLogicCars.Add(car.logicCar);
-            if (Main.Settings.DeepSleep) DeepSleepCar(car, fc);
+            fc.Car = car;
+            // Tiefschlaf nicht sofort fuer die ganze Garnitur, sondern fliessend (ProcessDeepTransitions)
+            if (Main.Settings.DeepSleep) QueueDeepSleep(car);
         }
 
         private void WakeCar(TrainCar car)
@@ -484,6 +545,8 @@ namespace PersistentCars
             if (!_frozen.TryGetValue(car, out var fc)) return;
             _frozen.Remove(car);
             _lastWake[car] = Time.realtimeSinceStartup;
+            _deepSleepQueued.Remove(car);
+            GraceAfterWake(car);
 
             if (fc.Deep)
             {
@@ -543,7 +606,7 @@ namespace PersistentCars
                     continue;
                 }
                 // 100 m Hysterese verhindert Flackern an der Sichtgrenze.
-                if (!fc.Deep && nearest >= visualSleepSqr) DeepSleepCar(car, fc);
+                if (!fc.Deep && nearest >= visualSleepSqr) QueueDeepSleep(car);
                 if (fc.Deep) deep++;
             }
             if (deep != DeepCount && (deep == 0 || DeepCount == 0 || Math.Abs(deep - DeepCount) >= 50))
@@ -553,6 +616,10 @@ namespace PersistentCars
 
         private static void DeepSleepCar(TrainCar car, FrozenCar fc)
         {
+            // unmittelbar davor: Schadensempfaenger aus - beim Abschalten von Drehgestellen/Physik darf nichts
+            // Schaden melden. Wieder an erst 10 s nach dem Aufwachen.
+            _noDamage.Add(car);
+            _noDamageUntil.Remove(car);
             try
             {
                 DisableRenderers(car.gameObject, fc);
@@ -611,6 +678,7 @@ namespace PersistentCars
 
         private static void DeepWake(FrozenCar fc)
         {
+            GraceAfterWake(fc.Car);
             foreach (var r in fc.DeepRenderers) if (r != null) r.enabled = true;
             foreach (var b in fc.DeepBehaviours) if (b != null) b.enabled = true;
             foreach (var p in fc.DeepParticles) if (p != null) CallParticle(p, "Play");
@@ -636,11 +704,21 @@ namespace PersistentCars
                 _frozen.Remove(car);
             }
             _freezeQueued.Clear();
+            _deepSleepQueued.Clear();
+            _deepSleepQueue.Clear();
             Main.Log($"Queued {n} frozen car(s) for staggered wake-up ({reason}).");
         }
 
         private void RemoveDestroyedCars()
         {
+            _noDamage.RemoveWhere(c => c == null);
+            _deepSleepQueued.RemoveWhere(c => c == null);
+            if (_noDamageUntil.Count > 0)
+            {
+                float t = Time.realtimeSinceStartup;
+                foreach (var k in _noDamageUntil.Where(kv => kv.Key == null || t >= kv.Value).Select(kv => kv.Key).ToList())
+                    _noDamageUntil.Remove(k);
+            }
             if (_lastWake.Count > 0)
             {
                 float now = Time.realtimeSinceStartup;

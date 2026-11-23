@@ -79,6 +79,16 @@ namespace PersistentCars
             return pt == null ? float.MaxValue : (position - pt.position).sqrMagnitude;
         }
 
+        /// <summary>
+        /// Quadrierte Entfernung zum naechsten MP-Client (ohne Host). Ohne Multiplayer / ohne Clients: MaxValue.
+        /// </summary>
+        public static float NearestClientSqrDistance(Vector3 position)
+        {
+            if (!Available || IsClient) return float.MaxValue;
+            try { return MpInner.NearestClientSqrMag(position); }
+            catch { return float.MaxValue; }
+        }
+
         /// <summary>Fuers Freezer-Log: welche MP-Spieler der Host kennt (Name + Position), sonst leer.</summary>
         public static string PlayerSummary()
         {
@@ -180,6 +190,25 @@ namespace PersistentCars
             return true;
         }
 
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static float NearestClientSqrMag(Vector3 position)
+        {
+            var server = MPAPI.MultiplayerAPI.Server;
+            float best = float.MaxValue;
+            if (server?.Players == null) return best;
+            Vector3 shift = WorldOrigin.Shift();
+            foreach (var p in server.Players)
+            {
+                if (p == null || p.IsHost) continue;
+                var pos = p.Position;
+                float d1 = (pos - position).sqrMagnitude;
+                float d2 = (pos + shift - position).sqrMagnitude;
+                float d3 = (pos - shift - position).sqrMagnitude;
+                best = Mathf.Min(best, Mathf.Min(d1, Mathf.Min(d2, d3)));
+            }
+            return best;
+        }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static ushort TaskNetId(DV.Logic.Job.Task task)

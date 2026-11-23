@@ -24,8 +24,11 @@ namespace PersistentCars
         /// <summary>Prefix auf CarDamageModel.DamageCar und CargoDamageModel.ApplyDamageToCargo.</summary>
         public static bool Damage_Prefix(object __instance)
         {
-            if (!Active) return true;
+            if (!Main.IsActive || !Main.IsAuthority) return true;
             var car = Reflect.Get<TrainCar>(__instance, "trainCar");
+            // Tiefschlaf: unmittelbar davor bis 10 s nach dem Aufwachen kein Schaden (siehe CarFreezer)
+            if (car != null && CarFreezer.IsDamageBlocked(car)) return false;
+            if (!Active) return true;
             if (car == null || HasLoco(car)) return true;
             Blocked++;
             if (Blocked == 1 || Blocked % 50 == 0)

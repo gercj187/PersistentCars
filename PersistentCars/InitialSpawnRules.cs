@@ -70,12 +70,16 @@ namespace PersistentCars
                     SuccessThisRun[yard] = 0;
                     if (roundRobin) RoundRobin.Add(yard); else RoundRobin.Remove(yard);
                 }
+                // Leerzug-Startjobs (LH) des Spiels spawnen leere Wagen auf einem S-Gleis und fahren von dort ab -
+                // gegen die Gleisregel. Beim Fuellen (Weltspawn wie Einmal-Spawn eines Bahnhofs, auch SM bei neuer
+                // Karriere) gar nicht erst erzeugen, statt sie hinterher zu entfernen. Leere Wagen bekommen ihre
+                // Fahrten spaeter ueber das Nachfuellen (ab O/I) bzw. die Bereitstellung (SP).
+                saved.EmptyHaul = Reflect.Get<bool>(rs, "emptyHaulStartingJobSupported");
+                Reflect.Set(rs, "emptyHaulStartingJobSupported", false);
                 if (canShunt && yard != null && SlotsLeft[yard] > 0)
                 {
                     saved.Haul = Reflect.Get<bool>(rs, "haulStartingJobSupported");
-                    saved.EmptyHaul = Reflect.Get<bool>(rs, "emptyHaulStartingJobSupported");
                     Reflect.Set(rs, "haulStartingJobSupported", false);
-                    Reflect.Set(rs, "emptyHaulStartingJobSupported", false);
                 }
                 Originals[rs] = saved;
             }
@@ -112,8 +116,7 @@ namespace PersistentCars
         {
             if (!s.Haul.HasValue) return;
             Reflect.Set(rs, "haulStartingJobSupported", s.Haul.Value);
-            if (s.EmptyHaul.HasValue) Reflect.Set(rs, "emptyHaulStartingJobSupported", s.EmptyHaul.Value);
-            s.Haul = null; s.EmptyHaul = null;
+            s.Haul = null;   // Leerzug-Startjobs bleiben bis zum Ende der Generierung aus (Restore)
         }
 
         /// <summary>Aus Capacity.EndWhenDone: Regelwerk exakt zuruecksetzen.</summary>

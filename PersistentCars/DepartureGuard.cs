@@ -43,6 +43,9 @@ namespace PersistentCars
         public static void Tick()
         {
             if (Queue.Count == 0) return;
+            // Nie waehrend des Ladens/Weltaufbaus: das erste Speichern laeuft in der Lade-Routine des Spiels.
+            // Erst wenn Welt, Wagen und Jobs komplett geladen sind, wird aufgeraeumt.
+            if (!WorldStreamingInit.IsLoaded || !AStartGameData.carsAndJobsLoadingFinished) return;
             var list = Queue.ToList();
             Queue.Clear();
             foreach (var chain in list)
@@ -55,11 +58,9 @@ namespace PersistentCars
                     var cars = chain.carsForJobChain?.Where(c => c != null).ToList() ?? new List<Car>();
                     foreach (var c in cars) if (c.ID != null) NeedPrepare.Add(c.ID);
 
-                    var destroy = Reflect.Method(typeof(JobChainController), "DestroyChain");
-                    if (destroy != null && destroy.GetParameters().Length == 0)
-                        JobAcceptance.WithExpireAllowed(() => destroy.Invoke(chain, null));
-                    else
-                        JobAcceptance.WithExpireAllowed(() => chain.currentJobInChain?.ExpireJob());
+                    // die GANZE Kette aufloesen und austragen - nicht nur den Job (sonst bleibt eine leere,
+                    // uninitialisierte Kette zurueck und jedes Speichern bricht ab)
+                    ChainKiller.Kill(chain, "departure guard: would leave from storage track " + track.ID.FullDisplayID);
 
                     if (_logged++ < 60)
                         Main.Log($"Departure guard: {jobId} would leave from storage track {track.ID.FullDisplayID} - removed, " +

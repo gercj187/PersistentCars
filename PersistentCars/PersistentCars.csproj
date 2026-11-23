@@ -7,7 +7,7 @@
 		<Nullable>disable</Nullable>
 
 		<!-- Pfade - bei Bedarf anpassen oder per /p:DvDir=... ueberschreiben -->
-		<DvDir Condition="'$(DvDir)' == ''">S:\SteamLibrary\steamapps\common\Derail Valley</DvDir>
+		<DvDir Condition="'$(DvDir)' == ''">C:\GAMES\Steam\steamapps\common\Derail Valley</DvDir>
 		<DvManaged>$(DvDir)\DerailValley_Data\Managed</DvManaged>
 		<MpApiDll Condition="'$(MpApiDll)' == ''">$(DvDir)\Mods\Multiplayer\MultiplayerAPI.dll</MpApiDll>
 		<!-- nach dem Build direkt in den Mods-Ordner kopieren -->

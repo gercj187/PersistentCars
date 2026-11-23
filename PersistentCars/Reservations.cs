@@ -36,6 +36,8 @@ namespace PersistentCars
         public static bool FirstLinkMode => !Disabled && Main.IsAuthority && !Main.Settings.DeferReservationToAcceptance && Main.Settings.ReserveFirstLinkOnly;
 
         public static void Reset() { ReservedChains.Clear(); KnownChains.Clear(); }
+        /// <summary>Aufgeloeste Kette vergessen (ChainKiller).</summary>
+        public static void Forget(JobChainController chain) { if (chain == null) return; KnownChains.Remove(chain); ReservedChains.Remove(chain); }
 
         /// <summary>Alle Ketten, die seit dem Laden reserviert haben (erzeugt oder geladen) - fuer die Rangier-Prioritaet.</summary>
         private static readonly HashSet<JobChainController> KnownChains = new HashSet<JobChainController>();

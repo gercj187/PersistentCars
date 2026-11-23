@@ -172,6 +172,9 @@ namespace PersistentCars
             var ps = typeof(PrepareSave);
             PatchByName(typeof(JobChainController), "GetJobChainSaveData", postfix: nameof(PrepareSave.GetJobChainSaveData_Postfix), owner: ps);
             PatchByName(typeof(JobSaveManager), "GetJobsSaveGameData", postfix: nameof(PrepareSave.GetJobsSaveGameData_Postfix), owner: ps);
+            // Absicherung: eine kaputte (leere) Kette darf das Speichern nie wieder abbrechen
+            PatchByName(typeof(JobChainController), "GetJobChainSaveData", finalizer: nameof(ChainKiller.GetJobChainSaveData_Finalizer), owner: typeof(ChainKiller));
+            PatchByName(typeof(JobSaveManager), "GetJobsSaveGameData", postfix: nameof(ChainKiller.GetJobsSaveGameData_Postfix), owner: typeof(ChainKiller));
             PatchByName(typeof(JobSaveManager), "LoadJobSaveGameData", prefix: nameof(PrepareSave.LoadJobSaveGameData_Prefix), owner: ps);
             PatchByName(typeof(JobSaveManager), "LoadJobChain", prefix: nameof(PrepareSave.LoadJobChain_Prefix), owner: ps);
             PatchByName(typeof(SaveGameManager), "UpdateInternalData", postfix: nameof(PrepareSave.UpdateInternalData_Postfix), owner: ps);

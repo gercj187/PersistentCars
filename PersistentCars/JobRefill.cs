@@ -276,12 +276,7 @@ namespace PersistentCars
             {
                 Main.Warning($"Job refill: finalizing chain at {g.Station.logicStation.ID} failed: {ex.Message}");
                 // Reservierungen nicht liegen lassen: Kette sauber aufloesen, sonst nur das GameObject entfernen
-                try
-                {
-                    var destroy = Reflect.Method(typeof(JobChainController), "DestroyChain");
-                    if (destroy != null && destroy.GetParameters().Length == 0) JobAcceptance.WithExpireAllowed(() => destroy.Invoke(chain, null));
-                    else UnityEngine.Object.Destroy(chain.jobChainGO);
-                }
+                try { ChainKiller.Kill(chain, "job refill: finalizing failed"); }
                 catch { try { UnityEngine.Object.Destroy(chain.jobChainGO); } catch { } }
                 return false;
             }

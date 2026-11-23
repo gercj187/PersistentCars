@@ -53,10 +53,9 @@ namespace PersistentCars
                     if (abandon != null && abandon.GetParameters().Length == 1) abandon.Invoke(JobsManager.Instance, new object[] { job });
                 }
 
-                var destroy = Reflect.Method(typeof(JobChainController), "DestroyChain");
-                if (chain != null && destroy != null && destroy.GetParameters().Length == 0) destroy.Invoke(chain, null);
-                else if (job.State == JobState.Available) job.ExpireJob();
+                if (chain == null && job.State == JobState.Available) job.ExpireJob();
             });
+            if (chain != null) ChainKiller.Kill(chain, "car deleted");
 
             Main.Log($"Car deleted: job {job.ID} ({state}) removed together with its job chain - the remaining cars get a new job at the next full game hour.");
         }
