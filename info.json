@@ -1,6 +1,6 @@
 {
 	"Id": "PersistentCars",
-	"Version": "1.02.00",
+	"Version": "1.02.01",
 	"DisplayName": "PersistentCars",
 	"Author": "CJ187",
 	"EntryMethod": "PersistentCars.Main.Load",
