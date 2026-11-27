@@ -2,8 +2,8 @@
 	"Releases": [
 		{
 			"Id": "PersistentCars",
-			"Version": "1.02.01",
-			"DownloadUrl": "https://github.com/gercj187/PersistentCars/releases/download/PersistentCars/PersistentCars_v1.02.01.zip"
+			"Version": "1.02.02",
+			"DownloadUrl": "https://github.com/gercj187/PersistentCars/releases/download/PersistentCars/PersistentCars_v1.02.02.zip"
 		}
 	]
 }
